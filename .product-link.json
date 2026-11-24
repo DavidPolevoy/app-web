@@ -1,0 +1,9 @@
+{
+  "product": "project-alpha",
+  "protected": [
+    "main",
+    "dev",
+    "release/*",
+    "hotfix/*"
+  ]
+}
