@@ -1,0 +1,30 @@
+# Code half of "code drives": tell the product repo about branch creation, deletion and merges.
+# Nothing here can block a code merge.
+name: follow-dispatch
+on:
+  create:
+  delete:
+  pull_request:
+    types: [closed]
+jobs:
+  dispatch:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v1
+        id: app
+        with: { app-id: "${{ vars.FOLLOW_APP_ID }}", private-key: "${{ secrets.FOLLOW_APP_KEY }}", owner: "${{ github.repository_owner }}", repositories: "${{ vars.PRODUCT_REPO }}" }
+      - name: dispatch
+        env:
+          GH_TOKEN: "${{ steps.app.outputs.token }}"
+          KIND: "${{ github.event_name == 'create' && 'code-branch-created' || github.event_name == 'delete' && 'code-branch-deleted' || 'code-pr-merged' }}"
+        run: |
+          gh api "repos/${{ github.repository_owner }}/${{ vars.PRODUCT_REPO }}/dispatches" --input - <<JSON
+          { "event_type": "$KIND", "client_payload": {
+              "repo": "${{ github.event.repository.name }}",
+              "branch": "${{ github.event.ref }}",
+              "head": "${{ github.event.pull_request.head.ref }}",
+              "base": "${{ github.event.pull_request.base.ref }}",
+              "number": "${{ github.event.pull_request.number }}",
+              "sha": "${{ github.event.pull_request.merge_commit_sha || github.sha }}" } }
+          JSON
